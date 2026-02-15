@@ -39,6 +39,17 @@ class StoreService
         ];
     }
 
+    public function createStore(array $data): Store
+    {
+        $store = Store::create([
+            'name' => $data['name'],
+            'delivery_radius_km' => $data['delivery_radius_km'],
+            'location' => DB::raw("POINT({$data['longitude']}, {$data['latitude']})"),
+        ]);
+
+        return Store::query()->withCoordinates()->find($store->id);
+    }
+
     public function findStoresNearPostcode(string $postcode): Collection
     {
         $cleanPostcode = $this->sanitizePostcode($postcode);

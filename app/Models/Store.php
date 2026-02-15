@@ -28,11 +28,9 @@ class Store extends Model
 
     public function scopeWithCoordinates($query)
     {
-        return $query->addSelect([
-            '*',
-            'latitude' => DB::raw('ST_Y(location)'),
-            'longitude' => DB::raw('ST_X(location)'),
-        ]);
+        return $query->select('*')
+            ->selectRaw('ST_Y(location) as latitude')
+            ->selectRaw('ST_X(location) as longitude');
     }
 
     public function scopeOrderByDistance($query, $lat, $lng)

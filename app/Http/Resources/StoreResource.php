@@ -18,8 +18,8 @@ class StoreResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'delivery_radius_km' => $this->delivery_radius_km,
-            'latitude' => $this->latitude,
-            'longitude' => $this->longitude,
+            'latitude' => (float) $this->latitude, 
+            'longitude' => (float) $this->longitude,
             'distance_km' => isset($this->distance_m) ? round($this->distance_m / 1000, 2) : null,
         ];
     }

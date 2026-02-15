@@ -55,4 +55,13 @@ class StoreController extends Controller
             ], 404);
         }
     }
+
+    public function store(StoreStoreRequest $request): JsonResponse
+    {
+        $store = $this->storeService->createStore($request->validated());
+
+        return (new StoreResource($store))
+            ->response()
+            ->setStatusCode(201);
+    }
 }
