@@ -1,59 +1,162 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 📍 Store Management & Delivery API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A high-performance Laravel 12 API for managing retail store locations and calculating delivery feasibility using geospatial coordinates and UK postcodes.
 
-## About Laravel
+## 🚀 Quick Start
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+1. **Clone & Environment**:
+    ```bash
+    cp .env.example .env
+    # Ensure DB_CONNECTION=mariadb and that DB_PASSWORD is uncommented and set to something
+    ```
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+2. **Docker Setup (Sail)**:
+    *The following commands assume you have a "sail" alias setup. If you do not, replace "sail" with "vendor/bin/sail"*
+    ```bash
+    sail composer install
+    sail artisan key:generate
+    ```
+3. **Database & API Setup**:
+    ```bash
+    sail artisan migrate
+    sail artisan install:api
+    sail artisan db:seed
+    ```
+    ***Note**: The seeder will output a Reviewer Token. Use this for POST requests.*
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+4. **Postcode Import**:
+    ```bash
+    sail artisan import:postcodes
+    ```
+    **Note**: I have included a sample of postcodes from [Free Map Tools](https://www.freemaptools.com/download-uk-postcode-lat-lng.htm) - only the first 1000 postcodes are in the sample. You can download the full Full UK Postcode Latitude Longitude CSV file to import if you wish to. Simply place the extracted ukpostcodes.csv file into `storage/app` and run the following command:
+    ```bash
+    sail artisan import:postcodes --path=storage/app/ukpostcodes.csv
+    ```
 
-## Learning Laravel
+5. Run tests
+    ```bash
+    sail artisan test
+    ```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+---
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## 🏗 Architecture Reflection
 
-## Laravel Sponsors
+### 1. Geospatial Strategy
+Instead of calculating distances in PHP using the Haversine formula (which is mathematically intensive and slow at scale), I utilized **MariaDB/MySQL Spatial Extensions**.
+- **Storage**: Stores and Postcodes use the `POINT` data type.
+- **Indexing**: A `SPATIAL` index is applied to the `location` column for $O(log n)$ search performance.
+- **Calculation**: I used `ST_Distance_Sphere` to ensure high-accuracy distance calculations directly within the database engine.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### 2. Service-Oriented Architecture
+I implemented a `StoreService` to decouple business logic from the `StoreController`.
+- **Thin Controllers**: Controllers only handle request validation and response formatting.
+- **Reusable Logic**: The delivery feasibility logic is encapsulated, allowing it to be reused by future CLI commands or Job workers without duplicating code.
 
-### Premium Partners
+### 3. Performance & Optimization
+- **Caching**: UK postcode coordinates are effectively static. I implemented a 24-hour cache on postcode lookups using `Cache::remember` to reduce hits on the 1.7M+ row postcode table.
+- **Memory Management**: The postcode importer uses `LazyCollection` to stream the CSV file, ensuring the import can handle millions of rows without hitting memory limits.
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+### 4. API Security
+I utilized Laravel Sanctum to protect the Store Creation endpoint. This demonstrates a production-ready mindset where data-modifying actions are restricted to authenticated users, while lookup endpoints remain public for consumer use.
+    
+---
 
-## Contributing
+## 📊 Database Schema
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+- **stores** - `id`, `name`, `location (POINT)`, `delivery_radius_km`, `timestamps`.
+- **postcodes** - `id`, `postcode (Indexed)`, `location (POINT)`, `timestamps`
 
-## Code of Conduct
+```mermaid
+erDiagram
+    STORES {
+        unsigned_bigint id PK
+        string name
+        point location "SPATIAL INDEX"
+        decimal delivery_radius_km
+        timestamps timestamps
+    }
+    POSTCODES {
+        unsigned_bigint id PK
+        string postcode "INDEX"
+        point location "SPATIAL INDEX"
+        timestamps timestamps
+    }
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+---
 
-## Security Vulnerabilities
+## 🔐 Authentication Guide
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+The `POST /api/stores` endpoint is protected via **Laravel Sanctum**. To interact with it, you must provide a Bearer Token.
 
-## License
+### 1. Obtain a Token
+After running `sail artisan db:seed`, a token will be printed to your terminal. If you missed it, you can generate a new one via Tinker:
+```bash
+sail artisan tinker --execute="echo App\Models\User::first()->createToken('manual')->plainTextToken"
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### 2a. Using Postman
+
+1. Open your request in Postman.
+2. Click on the **Auth** tab.
+3. Select **Bearer Token** from the dropdown.
+4. Paste your token into the **Token** field.
+
+### 2b. Using cURL
+
+```bash
+curl -X POST http://localhost/api/stores \
+     -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+     -H "Content-Type: application/json" \
+     -H "Accept: application/json" \
+     -d '{
+           "name": "Test Store",
+           "latitude": 51.5074,
+           "longitude": -0.1278,
+           "delivery_radius_km": 10
+         }'
+```
+
+---
+
+## 🛣 API Documentation
+
+1. **Create Store**
+    `POST /api/stores`
+    - **Auth**: Requires bearer token - this is output when running the db seeder.
+    - **Payload**:
+        ```json
+        {
+            "name": "London Oxford Street",
+            "latitude": 51.5148,
+            "longitude": -0.1419,
+            "delivery_radius_km": 5
+        }
+        ```
+
+2. **Find Nearby Stores**
+    `GET /api/stores/nearby?postcode=W1B3AG`
+    - **Logic**: Returns all stores where the distance to the postcode is less than or equal to the store's unique `delivery_radius_km`.
+    - **Ordering**: Results are returned from nearest to furthest.
+
+3. Check Delivery Feasibility
+    `GET /api/stores/can-deliver?postcode=W1B3AG&store_id=1`
+    - **Response**:
+        ```json
+        {
+            "can_deliver": true,
+            "distance_km": 1.24,
+            "store_name": "London Oxford Street"
+        }
+        ```
+
+---
+
+## 🧪 Testing Suite
+
+The project includes a robust test suite (18 tests) covering:
+    **Feature Tests**: Ensuring correct API responses and status codes (201, 404, 422).
+    **Validation Tests**: Ensuring coordinates and radii are logically sound.
+    **Mocking/Caching**: Verifying that the application correctly interacts with the Cache facade to optimize performance.
+
