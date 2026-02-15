@@ -6,6 +6,7 @@ use App\Exceptions\PostcodeNotFoundException;
 use App\Exceptions\StoreNotFoundException;
 use App\Models\Store;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class StoreService
@@ -52,12 +53,7 @@ class StoreService
 
     public function findStoresNearPostcode(string $postcode): Collection
     {
-        $cleanPostcode = $this->sanitizePostcode($postcode);
-        
-        $location = DB::table('postcodes')
-            ->selectRaw('ST_Y(location) as lat, ST_X(location) as lng')
-            ->where('postcode', $cleanPostcode)
-            ->first();
+        $location = $this->getPostcodeCoordinates($postcode);
 
         if (! $location) {
             throw new PostcodeNotFoundException;
@@ -74,10 +70,16 @@ class StoreService
     {
         $cleanPostcode = $this->sanitizePostcode($postcode);
 
-        return DB::table('postcodes')
-            ->selectRaw('ST_Y(location) as lat, ST_X(location) as lng')
-            ->where('postcode', $cleanPostcode)
-            ->first();
+        return Cache::remember(
+            "postcode_coords_{$cleanPostcode}",
+            now()->addDay(),
+            function () use ($cleanPostcode) {
+                return DB::table('postcodes')
+                    ->selectRaw('ST_Y(location) as lat, ST_X(location) as lng')
+                    ->where('postcode', $cleanPostcode)
+                    ->first();
+            }
+        );
     }
 
     private function sanitizePostcode(string $postcode): string
