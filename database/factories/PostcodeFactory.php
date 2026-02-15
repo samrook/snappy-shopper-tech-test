@@ -23,7 +23,7 @@ class PostcodeFactory extends Factory
         return [
             'postcode' => strtoupper($this->faker->bothify('??# #??')),
             // MariaDB POINT(longitude latitude)
-            'location' => DB::raw("POINT($longitude $latitude)"), 
+            'location' => DB::raw("POINT($longitude, $latitude)"), 
         ];
     }
 }
