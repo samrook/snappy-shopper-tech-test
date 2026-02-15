@@ -12,7 +12,7 @@ class ImportPostcodesCommand extends Command
     /**
      * @var string
      */
-    protected $signature = 'import:postcodes {path=storage/app/postcodes_sample.csv}';
+    protected $signature = 'import:postcodes {--path=storage/app/postcodes_sample.csv}';
 
     /**
      * @var string
@@ -21,7 +21,7 @@ class ImportPostcodesCommand extends Command
 
     public function handle()
     {
-        $path = $this->argument('path');
+        $path = $this->option('path');
 
         if (! File::exists($path)) {
             $this->error("File not found at: {$path}");
