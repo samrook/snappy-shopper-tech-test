@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Exceptions\PostcodeNotFoundException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CanDeliverRequest;
 use App\Http\Requests\NearbyStoreRequest;
+use App\Http\Requests\StoreStoreRequest;
 use App\Http\Resources\StoreResource;
 use App\Services\StoreService;
 use Illuminate\Http\JsonResponse;
@@ -14,6 +16,23 @@ class StoreController extends Controller
 {
     public function __construct(private StoreService $storeService)
     {
+    }
+
+    public function canDeliver(CanDeliverRequest $request)
+    {
+        try {
+            $result = $this->storeService->checkFeasibility(
+                $request->postcode, 
+                $request->store_id
+            );
+
+            return response()->json($result);   
+        } catch (PostcodeNotFoundException) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Postcode not found.'
+            ], 404);
+        }
     }
 
     public function nearby(NearbyStoreRequest $request): JsonResponse|AnonymousResourceCollection
