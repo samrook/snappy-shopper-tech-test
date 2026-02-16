@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\PostcodeNotFoundException;
 use App\Exceptions\StoreNotFoundException;
 use App\Models\Store;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -51,7 +52,7 @@ class StoreService
         return Store::query()->withCoordinates()->find($store->id);
     }
 
-    public function findStoresNearPostcode(string $postcode): Collection
+    public function findStoresNearPostcode(string $postcode): LengthAwarePaginator
     {
         $location = $this->getPostcodeCoordinates($postcode);
 
