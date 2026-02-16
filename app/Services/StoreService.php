@@ -63,7 +63,7 @@ class StoreService
             ->withCoordinates()
             ->withinDistance($location->lat, $location->lng)
             ->orderByDistance($location->lat, $location->lng)
-            ->get();
+            ->paginate(15);
     }
 
     public function getPostcodeCoordinates(string $postcode)
